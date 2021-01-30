@@ -3,7 +3,7 @@ from attention import AttentionLayer
 import numpy as np  
 import pandas as pd 
 import re
-
+import tensorflow
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence  import pad_sequences
 from nltk.corpus import stopwords   
@@ -11,14 +11,22 @@ from tensorflow.keras.layers import Input, LSTM, Embedding, Dense, Concatenate, 
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping
 import warnings
+
 pd.set_option("display.max_colwidth", 200)
 warnings.filterwarnings("ignore")
+
+print(tensorflow.__version__)
+print(tensorflow.test.is_gpu_available())
 # %%
-data = pd.read_csv("data/Reviews.csv", nrows=100000)
-# %%
+# read in data
+data = pd.read_csv("../data/Reviews.csv", nrows=200000)
+
 data.drop_duplicates(subset=['Text'], inplace=True)
 data.dropna(axis=0, inplace=True)
+
+data.info()
 # %%
+
 contraction_mapping = {"ain't": "is not", "aren't": "are not","can't": "cannot", "'cause": "because", "could've": "could have", "couldn't": "could not",
 
                            "didn't": "did not", "doesn't": "does not", "don't": "do not", "hadn't": "had not", "hasn't": "has not", "haven't": "have not",
@@ -64,73 +72,44 @@ contraction_mapping = {"ain't": "is not", "aren't": "are not","can't": "cannot",
                            "you'd": "you would", "you'd've": "you would have", "you'll": "you will", "you'll've": "you will have",
 
                            "you're": "you are", "you've": "you have"}
-
-# %%
-print(data['Text'][0])
-print(data['Summary'][0])
-
-print(data['Text'][1])
-print(data['Summary'][1])
-
-print(data['Text'][2])
-print(data['Summary'][2])
 # %%
 from bs4 import BeautifulSoup
 stop_words = set(stopwords.words('english'))
-def text_cleaner(text):
+def text_cleaner(text,num):
     newString = text.lower()
-    #newString = BeautifulSoup(newString, "lxml").text
     newString = BeautifulSoup(newString, "html.parser").text
     newString = re.sub(r'\([^)]*\)', '', newString)
     newString = re.sub('"','', newString)
     newString = ' '.join([contraction_mapping[t] if t in contraction_mapping else t for t in newString.split(" ")])    
     newString = re.sub(r"'s\b","",newString)
     newString = re.sub("[^a-zA-Z]", " ", newString) 
-    tokens = [w for w in newString.split() if not w in stop_words]
-    long_words=[]
+    newString = re.sub('[m]{2,}', 'mm', newString)
+    if (num==0):
+        tokens = [w for w in newString.split() if not w in stop_words]
+    else:
+        tokens = newString.split()
+    long_words = []
     for i in tokens:
-        if len(i)>=3:                  #removing short word
+        if len(i)>1:                                                 #removing short word
             long_words.append(i)   
     return (" ".join(long_words)).strip()
-
+# %%
 cleaned_text = []
 for t in data['Text']:
-    cleaned_text.append(text_cleaner(t))
-# %%
-print(data['Summary'][:10])
-# %%
-def summary_cleaner(text):
-    newString = re.sub('"','', text)
-    newString = ' '.join([contraction_mapping[t] if t in contraction_mapping else t for t in newString.split(" ")])    
-    newString = re.sub(r"'s\b","",newString)
-    newString = re.sub("[^a-zA-Z]", " ", newString)
-    newString = newString.lower()
-    tokens=newString.split()
-    newString=''
-    for i in tokens:
-        if len(i)>1:                                 
-            newString=newString+i+' '  
-    return newString
+    cleaned_text.append(text_cleaner(t,0))
 
-#Call the above function
 cleaned_summary = []
 for t in data['Summary']:
-    cleaned_summary.append(summary_cleaner(t))
-
+    cleaned_summary.append(text_cleaner(t,1))
+    
 data['cleaned_text']=cleaned_text
 data['cleaned_summary']=cleaned_summary
-data['cleaned_summary'].replace('', np.nan, inplace=True)
-data.dropna(axis=0,inplace=True)
 
-# %%
-data['cleaned_summary'] = data['cleaned_summary'].apply(lambda x : '_START_ '+ x + ' _END_')
-# %%
-for i in range(15):
-    print("Review:",data['cleaned_text'][i])
-    print("Summary:",data['cleaned_summary'][i])
-    print("\n")
+data.replace('', np.nan, inplace=True)
+data.dropna(axis=0,inplace=True)
 # %%
 import matplotlib.pyplot as plt
+
 text_word_count = []
 summary_word_count = []
 
@@ -142,95 +121,108 @@ for i in data['cleaned_summary']:
       summary_word_count.append(len(i.split()))
 
 length_df = pd.DataFrame({'text':text_word_count, 'summary':summary_word_count})
+
 length_df.hist(bins = 30)
 plt.show()
 # %%
-max_len_text=80 
-max_len_summary=10
+cnt=0
+for i in data['cleaned_summary']:
+    if(len(i.split())<=8):
+        cnt=cnt+1
+print(cnt/len(data['cleaned_summary']))
+# %%
+max_text_len=50
+max_summary_len=10
+
+cleaned_text = np.array(data['cleaned_text'])
+cleaned_summary = np.array(data['cleaned_summary'])
+
+short_text=[]
+short_summary=[]
+
+for i in range(len(cleaned_text)):
+    if(len(cleaned_summary[i].split())<=max_summary_len and len(cleaned_text[i].split())<=max_text_len):
+        short_text.append(cleaned_text[i])
+        short_summary.append(cleaned_summary[i])
+        
+df=pd.DataFrame({'text':short_text,'summary':short_summary})
+# %%
+df['summary'] = df['summary'].apply(lambda x : 'sostok '+ x + ' eostok')
 # %%
 from sklearn.model_selection import train_test_split
-x_tr,x_val,y_tr,y_val=train_test_split(data['cleaned_text'],data['cleaned_summary'],test_size=0.1,random_state=0,shuffle=True) 
+x_tr,x_val,y_tr,y_val=train_test_split(np.array(df['text']),np.array(df['summary']),test_size=0.1,random_state=0,shuffle=True)
 # %%
-# Tokenizers
-x_tokenizer = Tokenizer()
+x_tokenizer = Tokenizer() 
+x_tokenizer.fit_on_texts(list(x_tr))
+
+thresh=6
+
+cnt=0
+tot_cnt=0
+freq=0
+tot_freq=0
+
+for key,value in x_tokenizer.word_counts.items():
+    tot_cnt=tot_cnt+1
+    tot_freq=tot_freq+value
+    if(value<thresh):
+        cnt=cnt+1
+        freq=freq+value
+    
+print("% of rare words in vocabulary:",(cnt/tot_cnt)*100)
+print("Total Coverage of rare words:",(freq/tot_freq)*100)
+
+#prepare a tokenizer for reviews on training data
+x_tokenizer = Tokenizer(num_words=tot_cnt-cnt) 
 x_tokenizer.fit_on_texts(list(x_tr))
 
 #convert text sequences into integer sequences
-x_tr    =   x_tokenizer.texts_to_sequences(x_tr) 
-x_val   =   x_tokenizer.texts_to_sequences(x_val)
+x_tr_seq = x_tokenizer.texts_to_sequences(x_tr) 
+x_val_seq = x_tokenizer.texts_to_sequences(x_val)
 
 #padding zero upto maximum length
-x_tr    =   pad_sequences(x_tr,  maxlen=max_len_text, padding='post') 
-x_val   =   pad_sequences(x_val, maxlen=max_len_text, padding='post')
+x_tr = pad_sequences(x_tr_seq,  maxlen=max_text_len, padding='post')
+x_val = pad_sequences(x_val_seq, maxlen=max_text_len, padding='post')
 
-x_voc_size   =  len(x_tokenizer.word_index) +1
+#size of vocabulary ( +1 for padding token)
+x_voc = x_tokenizer.num_words + 1
+
+print(x_voc)
+
 # %%
-#preparing a tokenizer for summary on training data 
-y_tokenizer = Tokenizer()
+y_tokenizer = Tokenizer()   
+y_tokenizer.fit_on_texts(list(y_tr))
+# %%
+thresh=6
+
+cnt=0
+tot_cnt=0
+freq=0
+tot_freq=0
+
+for key,value in y_tokenizer.word_counts.items():
+    tot_cnt=tot_cnt+1
+    tot_freq=tot_freq+value
+    if(value<thresh):
+        cnt=cnt+1
+        freq=freq+value
+    
+print("% of rare words in vocabulary:",(cnt/tot_cnt)*100)
+print("Total Coverage of rare words:",(freq/tot_freq)*100)
+# %%
+#prepare a tokenizer for reviews on training data
+y_tokenizer = Tokenizer(num_words=tot_cnt-cnt) 
 y_tokenizer.fit_on_texts(list(y_tr))
 
-#convert summary sequences into integer sequences
-y_tr    =   y_tokenizer.texts_to_sequences(y_tr) 
-y_val   =   y_tokenizer.texts_to_sequences(y_val) 
+#convert text sequences into integer sequences
+y_tr_seq = y_tokenizer.texts_to_sequences(y_tr) 
+y_val_seq = y_tokenizer.texts_to_sequences(y_val) 
 
 #padding zero upto maximum length
-y_tr    =   pad_sequences(y_tr, maxlen=max_len_summary, padding='post')
-y_val   =   pad_sequences(y_val, maxlen=max_len_summary, padding='post')
+y_tr = pad_sequences(y_tr_seq, maxlen=max_summary_len, padding='post')
+y_val = pad_sequences(y_val_seq, maxlen=max_summary_len, padding='post')
 
-y_voc_size  =   len(y_tokenizer.word_index) +1
+#size of vocabulary
+y_voc = y_tokenizer.num_words +1
 # %%
-import tensorflow.keras.backend as K
-K.clear_session() 
-latent_dim = 500 
-
-# Encoder 
-encoder_inputs = Input(shape=(max_len_text,)) 
-enc_emb = Embedding(x_voc_size, latent_dim,trainable=True)(encoder_inputs) 
-
-#LSTM 1 
-encoder_lstm1 = LSTM(latent_dim,return_sequences=True,return_state=True) 
-encoder_output1, state_h1, state_c1 = encoder_lstm1(enc_emb) 
-
-#LSTM 2 
-encoder_lstm2 = LSTM(latent_dim,return_sequences=True,return_state=True) 
-encoder_output2, state_h2, state_c2 = encoder_lstm2(encoder_output1) 
-
-#LSTM 3 
-encoder_lstm3=LSTM(latent_dim, return_state=True, return_sequences=True) 
-encoder_outputs, state_h, state_c= encoder_lstm3(encoder_output2) 
-
-# Set up the decoder. 
-decoder_inputs = Input(shape=(None,)) 
-dec_emb_layer = Embedding(y_voc_size, latent_dim,trainable=True) 
-dec_emb = dec_emb_layer(decoder_inputs) 
-
-#LSTM using encoder_states as initial state
-decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True) 
-decoder_outputs,decoder_fwd_state, decoder_back_state = decoder_lstm(dec_emb,initial_state=[state_h, state_c]) 
-
-#Attention Layer
-attn_layer = AttentionLayer(name='attention_layer') 
-attn_out, attn_states = attn_layer([encoder_outputs, decoder_outputs]) 
-
-# Concat attention output and decoder LSTM output 
-decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_out])
-
-#Dense layer
-decoder_dense = TimeDistributed(Dense(y_voc_size, activation='softmax')) 
-decoder_outputs = decoder_dense(decoder_concat_input) 
-
-# Define the model
-model = Model([encoder_inputs, decoder_inputs], decoder_outputs) 
-model.summary()
-# %%
-model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
-# %%
-es = EarlyStopping(monitor='val_loss', mode='min', verbose=1)
-# %%
-history=model.fit([x_tr,y_tr[:,:-1]], 
-                  y_tr.reshape(y_tr.shape[0],
-                  y_tr.shape[1], 1)[:,1:],
-                  epochs=50,callbacks=[es],batch_size=512, 
-                  validation_data=([x_val,y_val[:,:-1]], 
-                  y_val.reshape(y_val.shape[0],
-                  y_val.shape[1], 1)[:,1:]))
+y_tokenizer.word_counts['sostok'],len(y_tr)

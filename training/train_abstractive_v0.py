@@ -16,7 +16,7 @@ from attention import AttentionLayer
 pd.set_option("display.max_colwidth", 200)
 warnings.filterwarnings("ignore")
 
-data=pd.read_csv("data/Reviews.csv",nrows=100000)
+data=pd.read_csv("../data/Reviews.csv",nrows=100000)
 # %%
 # clean data
 data.drop_duplicates(subset=['Text'],inplace=True)  #dropping duplicates
