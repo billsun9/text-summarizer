@@ -16,18 +16,24 @@
                     Lorem ipsum dolor sit amet consectetur, adipisicing elit. Nam nulla veritatis, a error voluptate quia. Architecto corrupti enim velit iusto.
                 </div>
                 <label for="text-input">Text:</label>
-                <textarea id="text-input" name="text-input" rows="4" cols="100">
-                    Your text here!
-                </textarea>
-                
-                <label for="sum-len">Text:</label>
-                <textarea id="sum-len" name="sum-len" rows="4" cols="100">
-                    Your text here!
-                </textarea>
+                <textarea id="text-input" name="text-input" rows="4" cols="100" required></textarea>
                 <br><br>
+                <label for="sum-len">Number of summarized sentences:</label>
+                <input type="number" id="sum-len" name="sum-len" min="1" max="1" required>
                 <input type="submit" value="Submit">
             </form>
         </div>
     </div>
+    <script>
+        const textInput = document.querySelector('#text-input');
+        const summaryLength = document.querySelector('#sum-len');
+        textInput.addEventListener('keyup', e => {
+            let text = e.target.value.toLowerCase();
+            let numSentences = text.split(". ").length;
+            summaryLength.setAttribute('max', numSentences);
+
+            console.log(numSentences);
+        })
+    </script>
 </body>
 </html>

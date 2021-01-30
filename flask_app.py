@@ -19,7 +19,8 @@ def results():
     form = request.form
     if request.method == "POST":
         text_input = request.form['text-input']
-        prediction = generate_summary(text_input,3)
+        sum_len = request.form['sum-len']
+        prediction = generate_summary(text_input, int(sum_len))
         return render_template("results.html", message = prediction)
 
 
