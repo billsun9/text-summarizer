@@ -4,11 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RESULTS</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Palatino, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-size: 18px;
+            background-color: #ffffff;
+        }
+        .wrapper {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 8vw;
+            justify-content: space-evenly;
+        }
+        .info {
+            font-weight: 500;
+            font-size: 28px;
+            margin-bottom: 2vh;
+        }
+        a {
+            text-decoration: none;
+            border: 1px solid black;
+            padding: 12px 18px;
+            border-radius: 25px;
+            background-color:  #005ce6;
+            color: #ffffff;
+        }
+        a:hover {
+            transition: ease all 0.5s;
+            color:  #005ce6;
+            background-color: #ffffff;
+        }
+        .message {
+            line-height: 1.3;
+            letter-spacing: 0.1rem;
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
-        {{message}}
+        <div class="output">
+            <div class="info">Generated Summary:</div>
+            <br>
+            <div class="message">{{message}}</div>
+        </div>
+        <a href="/">Return Home!</a>
     </div>
-    <a href="/">Return Home!</a>
+    
 </body>
 </html>
